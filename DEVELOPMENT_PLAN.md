@@ -1,8 +1,9 @@
 # Israeli Ride-Sharing Application - Comprehensive Development Plan
 
 **Project Name:** RideIL - Compliant Ride-Sharing Platform for Israel
-**Version:** 1.0
+**Version:** 1.1
 **Date:** January 26, 2026
+**Last Updated:** January 26, 2026 (Technical Review Revisions)
 **Target Launch:** Phased approach beginning Q2 2026
 
 ---
@@ -149,6 +150,43 @@ Under Israel's Equal Rights for Persons with Disabilities Law (1998) and related
 | **Service Animal Accommodation** | Cannot refuse passengers with service animals |
 | **Communication Accessibility** | Options for users with hearing impairments |
 
+### 1.6.1 App Store Compliance Checklist
+
+#### Google Play Store Requirements
+
+| Requirement | Status | Implementation Notes |
+|-------------|--------|---------------------|
+| Privacy Policy link | Required | Host at rideil.co.il/privacy, link in app settings and Play Store listing |
+| Data Safety form | Required | Complete during Play Console submission |
+| Background location disclosure | Required | In-app prominent disclosure before permission request |
+| Target API level | Required | Minimum API 34 (Android 14) for 2026 launch |
+| Content rating | Required | Complete IARC questionnaire, expected rating: Teen (13+) |
+| App signing | Required | Use Play App Signing |
+
+#### Apple App Store Requirements
+
+| Requirement | Status | Implementation Notes |
+|-------------|--------|---------------------|
+| App Privacy labels | Required | Complete in App Store Connect |
+| Sign in with Apple | Conditional | Required if any third-party social login added |
+| Location usage descriptions | Required | Add NSLocation*UsageDescription keys to Info.plist |
+| Export compliance | Required | Declaration needed for TLS/AES encryption |
+| Age rating | Required | 12+ recommended |
+| Hebrew localization | Required | Full store listing localization |
+
+#### iOS Permission Usage Descriptions
+
+```xml
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>RideIL needs your location to find nearby drivers and track your trip for safety.</string>
+
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>RideIL needs continuous location access to receive trip requests and provide real-time navigation to passengers.</string>
+
+<key>NSCameraUsageDescription</key>
+<string>RideIL needs camera access to photograph and upload your license and vehicle documents for verification.</string>
+```
+
 ### 1.7 Payment Processing Compliance
 
 | Requirement | Implementation |
@@ -200,9 +238,9 @@ The operating company must obtain:
                                           ▼
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                              API GATEWAY LAYER                                   │
-│     - Kong / AWS API Gateway                                                     │
+│     - AWS API Gateway (selected for native AWS integration)                      │
 │     - Rate Limiting, Authentication, Request Routing                            │
-│     - SSL/TLS Termination                                                       │
+│     - SSL/TLS Termination, Certificate Pinning                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
                                           │
                                           ▼
@@ -232,9 +270,10 @@ The operating company must obtain:
 │   - Audit Logs                  │   - Trip Search                               │
 │   - Location History            │   - Compliance Reports                        │
 ├─────────────────────────────────┼───────────────────────────────────────────────┤
-│   AWS S3 / Object Storage       │   Message Queue (RabbitMQ/Kafka)              │
+│   AWS S3 / Object Storage       │   Message Queue (RabbitMQ)                    │
 │   - Document Uploads            │   - Event Processing                          │
 │   - Encrypted Backups           │   - Async Operations                          │
+│                                 │   - Scale to Kafka at >10k concurrent trips   │
 └─────────────────────────────────┴───────────────────────────────────────────────┘
                                           │
                                           ▼
@@ -293,24 +332,27 @@ The operating company must obtain:
 
 | Component | Technology | Configuration |
 |-----------|------------|---------------|
-| Cloud Provider | AWS (eu-west-1 or dedicated Israel region when available) | Data residency in compliant regions |
+| Cloud Provider | AWS il-central-1 (Israel) | Primary region for data residency compliance; eu-west-1 for disaster recovery |
+| API Gateway | AWS API Gateway | Native AWS integration, lower operational overhead |
+| Message Queue | RabbitMQ (MVP) | Migrate to Kafka at >10k concurrent trips |
 | Container Orchestration | Kubernetes (EKS) | High availability, auto-scaling |
 | CI/CD | GitHub Actions | Automated testing and deployment |
 | Infrastructure as Code | Terraform | Reproducible infrastructure |
-| Secrets Management | AWS Secrets Manager / HashiCorp Vault | Encrypted secret storage |
+| Secrets Management | AWS Secrets Manager | Encrypted secret storage with automatic rotation |
 | Monitoring | Prometheus + Grafana | Real-time metrics |
 | Logging | ELK Stack | Centralized, searchable logs |
-| APM | DataDog / New Relic | Application performance monitoring |
+| APM | DataDog | Application performance monitoring |
+| Mobile Security | Certificate Pinning | Prevent MITM attacks on mobile apps |
 
 ### 2.3 Database Schema Design
 
 #### 2.3.1 Core Entities
 
 ```sql
--- Users (Passengers)
-CREATE TABLE users (
+-- Riders (Passengers) - Renamed from 'users' for API consistency
+CREATE TABLE riders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    phone_number VARCHAR(20) UNIQUE NOT NULL,  -- Israeli mobile format
+    phone_number VARCHAR(20) UNIQUE NOT NULL,  -- Israeli mobile format (+972)
     email VARCHAR(255) UNIQUE,
     full_name VARCHAR(255) NOT NULL,
     national_id_hash VARCHAR(64),  -- Hashed for privacy
@@ -321,13 +363,17 @@ CREATE TABLE users (
     consent_version VARCHAR(20),
     consent_timestamp TIMESTAMPTZ,
 
+    -- Account recovery (optional but recommended)
+    recovery_email VARCHAR(255),
+    recovery_email_verified BOOLEAN DEFAULT FALSE,
+
     CONSTRAINT valid_language CHECK (preferred_language IN ('he', 'ar', 'en'))
 );
 
 -- Drivers
 CREATE TABLE drivers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id),
+    rider_id UUID REFERENCES riders(id),  -- Link to rider account if driver is also a rider
     full_legal_name VARCHAR(255) NOT NULL,
     national_id_encrypted BYTEA NOT NULL,  -- Encrypted storage
     phone_number VARCHAR(20) NOT NULL,
@@ -449,7 +495,7 @@ CREATE TABLE trips (
     trip_number VARCHAR(20) UNIQUE NOT NULL,  -- Human-readable reference
 
     -- Participants
-    rider_id UUID REFERENCES users(id) NOT NULL,
+    rider_id UUID REFERENCES riders(id) NOT NULL,
     driver_id UUID REFERENCES drivers(id) NOT NULL,
     vehicle_id UUID REFERENCES vehicles(id) NOT NULL,
 
@@ -464,10 +510,13 @@ CREATE TABLE trips (
     dropoff_address TEXT,
     route_polyline_encrypted BYTEA,  -- Encoded route
 
-    -- Timestamps (immutable)
+    -- Timestamps with timeout specifications
     requested_at TIMESTAMPTZ NOT NULL,
+    acceptance_deadline TIMESTAMPTZ,           -- requested_at + 30 seconds
     accepted_at TIMESTAMPTZ,
+    expected_arrival_at TIMESTAMPTZ,           -- For ETA timeout calculation
     driver_arrived_at TIMESTAMPTZ,
+    rider_pickup_deadline TIMESTAMPTZ,         -- arrived_at + 5 minutes
     trip_started_at TIMESTAMPTZ,
     trip_completed_at TIMESTAMPTZ,
     cancelled_at TIMESTAMPTZ,
@@ -482,11 +531,10 @@ CREATE TABLE trips (
     meter_reading_end DECIMAL(10, 2),
     vat_amount DECIMAL(10, 2),
 
-    -- Payment
-    payment_method VARCHAR(20),
+    -- Payment (receipt linked via receipts.trip_id, not here - avoids circular FK)
+    payment_method VARCHAR(20),                -- 'card', 'cash'
     payment_status VARCHAR(20),
     payment_transaction_id VARCHAR(100),
-    receipt_id UUID REFERENCES receipts(id),
 
     -- Compliance
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -502,7 +550,9 @@ CREATE TABLE trips (
     CONSTRAINT valid_trip_status CHECK (status IN (
         'requested', 'accepted', 'driver_en_route', 'driver_arrived',
         'in_progress', 'completed', 'cancelled', 'disputed'
-    ))
+    )),
+
+    CONSTRAINT valid_payment_method CHECK (payment_method IN ('card', 'cash'))
 );
 
 -- Create index for immutable trip history queries
@@ -822,16 +872,62 @@ Events:
 
 ### 2.6 Third-Party Integrations
 
-| Integration | Provider | Purpose |
-|-------------|----------|---------|
-| Maps & Navigation | Google Maps Platform / Waze | Routing, ETA, geocoding |
-| Payment Processing | Isracard, Leumi Card, or Stripe (Israel) | Credit card processing |
-| SMS Gateway | 019, Cellact, or Twilio | OTP and notifications |
-| Push Notifications | Firebase Cloud Messaging | Real-time alerts |
-| Document Storage | AWS S3 (encrypted) | Compliance documents |
-| Email Service | SendGrid / Amazon SES | Receipts and communications |
-| Identity Verification | Au10tix / Jumio | Document verification (future) |
-| Emergency Services | Integration TBD | Panic button routing |
+| Integration | Provider | Purpose | Status |
+|-------------|----------|---------|--------|
+| Maps & Navigation | Google Maps Platform | Routing, ETA, geocoding | P0 |
+| Payment Processing | Stripe Israel (primary), Isracard (backup) | Credit card processing | P0 |
+| SMS Gateway | Twilio (primary), 019 (backup) | OTP and notifications | P0 |
+| Push Notifications | Firebase Cloud Messaging | Real-time alerts | P0 |
+| Document Storage | AWS S3 (encrypted) | Compliance documents | P0 |
+| Email Service | Amazon SES | Receipts and communications | P0 |
+| Identity Verification | Manual review (MVP) / Au10tix (Phase 5) | Document verification | P0 (manual) / P2 (automated) |
+| Emergency Services | Israel Police (100), MDA (101) | Panic button routing | P0 |
+
+### 2.7 Offline Mode Handling
+
+The application must gracefully handle network connectivity loss to ensure safety and continuity of service.
+
+#### 2.7.1 Rider App Offline Behavior
+
+| Scenario | Behavior |
+|----------|----------|
+| **During ride request** | Queue request locally; show "Connecting..." indicator; retry with exponential backoff |
+| **During matching** | Show last known status; continue matching server-side; reconnect to receive driver assignment |
+| **During active trip** | Display last known driver location with "Offline" indicator; trip continues normally |
+| **During payment** | Store encrypted payment intent locally; process automatically upon reconnection |
+
+#### 2.7.2 Driver App Offline Behavior
+
+| Scenario | Behavior |
+|----------|----------|
+| **While online/waiting** | Show offline warning; pause incoming requests until reconnected |
+| **During active trip** | Continue GPS recording locally; store route data encrypted; sync upon reconnection |
+| **At trip completion** | Allow meter entry and completion; queue payment request; sync when online |
+
+#### 2.7.3 Data Synchronization
+
+```typescript
+interface OfflineQueue {
+  locationUpdates: GeoPoint[];      // Batched for sync
+  tripStateChanges: TripEvent[];    // Ordered by timestamp
+  paymentIntents: PaymentIntent[];  // Encrypted, retry on sync
+  maxOfflineDuration: number;       // 30 minutes before forcing re-auth
+}
+
+// Sync priority on reconnection
+const SYNC_PRIORITY = [
+  'safety_incidents',    // Highest priority
+  'trip_state_changes',
+  'payment_intents',
+  'location_updates',    // Batch sync
+];
+```
+
+#### 2.7.4 Offline Limitations
+
+- Maximum offline duration: 30 minutes before requiring re-authentication
+- Trip requests cannot be initiated offline (requires driver matching)
+- Panic button requires connectivity to notify emergency services (falls back to native dialer)
 
 ---
 
@@ -955,9 +1051,93 @@ const EXPIRY_ACTIONS = {
   vehicle_inspection: 'suspend_vehicle',
   medical_certificate: 'flag_for_review',
 };
+
+// Mid-trip expiration handling
+const MID_TRIP_POLICY = {
+  // If document expires during active trip:
+  // 1. Driver may complete current trip (safety priority)
+  // 2. Cannot accept new trips after completion
+  // 3. 24-hour grace period for document renewal
+  // 4. Full suspension if not renewed within grace period
+  gracePeriodHours: 24,
+  allowTripCompletion: true,
+  blockNewTrips: true,
+};
 ```
 
-### 3.2 Metered Trip Flow
+### 3.2 Driver-Rider Matching
+
+#### 3.2.0 Matching Algorithm
+
+The matching service pairs riders with available drivers using a weighted scoring algorithm.
+
+##### Matching Criteria (Priority Order)
+
+| Priority | Criterion | Weight | Description |
+|----------|-----------|--------|-------------|
+| 1 | Distance | 40% | Nearest available driver within search radius |
+| 2 | Driver Rating | 25% | Minimum 4.0 stars required for matching |
+| 3 | Acceptance Rate | 20% | Drivers with <70% acceptance rate deprioritized |
+| 4 | Vehicle Match | 15% | Accessibility requirements, vehicle type |
+
+##### Matching Process
+
+```typescript
+interface MatchingRequest {
+  riderId: string;
+  pickupLocation: GeoPoint;
+  dropoffLocation: GeoPoint;
+  vehicleRequirements?: {
+    wheelchairAccessible?: boolean;
+    minSeats?: number;
+  };
+}
+
+interface MatchingConfig {
+  searchRadiusKm: number;           // Default: 5km, expand to 10km if needed
+  minDriverRating: number;          // Default: 4.0
+  acceptanceTimeout: number;        // 30 seconds
+  maxMatchAttempts: number;         // 5 drivers before "no drivers available"
+  newDriverProtection: {
+    enabled: boolean;
+    tripThreshold: number;          // First 50 trips
+    reducedRatingRequirement: number; // 3.5 instead of 4.0
+  };
+}
+
+// Matching flow
+async function matchDriver(request: MatchingRequest): Promise<MatchResult> {
+  // 1. Query drivers within radius, status='online'
+  // 2. Filter by vehicle requirements
+  // 3. Filter by minimum rating (with new driver exception)
+  // 4. Score remaining drivers by weighted criteria
+  // 5. Send request to highest-scored driver
+  // 6. Wait 30 seconds for acceptance
+  // 7. If declined/timeout, move to next driver
+  // 8. Repeat up to 5 attempts
+  // 9. Return "no drivers available" if exhausted
+}
+```
+
+##### Special Matching Cases
+
+| Case | Handling |
+|------|----------|
+| **Wheelchair-accessible** | Only match to vehicles with `wheelchair_accessible = true` |
+| **High demand** | Expand radius from 5km to 10km if no drivers found |
+| **New drivers** | Protected period (first 50 trips) with rating requirement of 3.5 |
+| **Premium riders** | Future: priority matching based on rider history |
+
+##### Timeout Specifications
+
+| Timeout | Duration | Action on Expiry |
+|---------|----------|------------------|
+| Driver acceptance | 30 seconds | Move to next driver |
+| Driver arrival | ETA + 10 minutes | Rider can cancel free |
+| Rider pickup | 5 minutes after arrival | No-show fee may apply |
+| Trip start | 10 minutes after arrival | Auto-cancellation |
+
+### 3.3 Metered Trip Flow
 
 #### 3.2.1 Trip Lifecycle
 
@@ -1457,6 +1637,90 @@ function requireFeature(flag: keyof FeatureFlags) {
       });
     }
     next();
+  };
+}
+```
+
+### 3.8 Cash Payment Handling
+
+To accommodate Israeli taxi regulations and user preferences, the application supports cash payments alongside card payments.
+
+#### 3.8.1 Cash Payment Flow
+
+##### Rider Flow
+
+1. Before confirming ride, rider selects payment method: "Card" or "Cash"
+2. If "Cash" selected, rider sees reminder: "Please have exact fare ready"
+3. Fare estimate shown same as card payment
+4. At trip end, final fare displayed with "Pay Driver in Cash" instruction
+
+##### Driver Flow
+
+1. Driver sees payment method during trip acceptance: "Payment: Cash"
+2. At trip completion, driver enters meter reading
+3. Driver confirms: "Cash Received" or "Cash Not Received"
+4. If not received, trip flagged for support follow-up
+
+#### 3.8.2 Business Rules
+
+| Rule | Description |
+|------|-------------|
+| **No platform fee** | Cash trips initially exempt from platform commission (Phase 7: settlement) |
+| **Receipt required** | Digital receipt generated regardless of payment method |
+| **Rider block threshold** | Riders with >2 unpaid cash trips blocked from cash option |
+| **Driver notification** | Clear indicator that trip is cash before acceptance |
+
+#### 3.8.3 Cash Settlement (Future - Phase 7)
+
+```typescript
+interface CashSettlement {
+  // Daily settlement process for cash trips
+  settlementPeriod: 'daily';
+
+  // Platform collects commission via:
+  // 1. Deduction from driver's card earnings
+  // 2. Weekly invoice if insufficient card earnings
+  // 3. Direct bank transfer setup (optional)
+
+  commissionRate: number;  // Percentage of fare
+  minimumPayout: number;   // Minimum balance before payout
+}
+```
+
+### 3.9 Rating System
+
+#### 3.9.1 Rating Structure
+
+| Attribute | Value |
+|-----------|-------|
+| Scale | 1-5 stars |
+| Optional comment | Yes (after rating) |
+| Anonymous | Yes (comments not attributed) |
+| Visible after | 10 ratings received |
+
+#### 3.9.2 Driver Rating Thresholds
+
+| Rating Range | Action |
+|--------------|--------|
+| 4.0+ | Normal operation |
+| 3.5 - 3.99 | Warning issued, coaching recommended |
+| 3.0 - 3.49 | Account review, improvement plan required |
+| Below 3.0 (2 weeks) | Temporary suspension pending review |
+
+#### 3.9.3 Rating Calculation
+
+```typescript
+interface RatingCalculation {
+  // Rolling average over last 100 trips
+  windowSize: 100;
+
+  // Minimum trips before rating affects matching
+  minimumTrips: 10;
+
+  // New driver protection period
+  newDriverProtection: {
+    tripCount: 50;
+    reducedThreshold: 3.5;  // Instead of 4.0
   };
 }
 ```
@@ -2027,6 +2291,7 @@ T+30 days: Resolution
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | January 26, 2026 | Development Team | Initial release |
+| 1.1 | January 26, 2026 | Technical Review | Resolved 15 conflicts/gaps; Added App Store compliance (1.6.1); Added Offline Mode (2.7); Added Matching Algorithm (3.2.0); Added Cash Payment (3.8); Added Rating System (3.9); Fixed database schema (riders table, trip timeouts); Updated infrastructure to AWS il-central-1 |
 
 ---
 
