@@ -16,27 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  enable-pages:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Enable GitHub Pages via API
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Ensure Pages is enabled with workflow deployment type
-          gh api repos/${{ github.repository }}/pages \
-            --method POST \
-            -f "build_type=workflow" 2>&1 || true
-
-          # Update to workflow build type if Pages already exists
-          gh api repos/${{ github.repository }}/pages \
-            --method PUT \
-            -f "build_type=workflow" 2>&1 || true
-
-          echo "Pages enablement step complete"
-
   deploy:
-    needs: enable-pages
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
