@@ -44,7 +44,7 @@ The project is designed with full regulatory compliance in mind, including the I
 
 ## Project Status
 
-RideIL is in the early planning and design phase. See [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md) for the comprehensive development roadmap.
+RideIL is in the early planning and design phase. Technical documentation (FRD, FRS, Development Plan, Privacy Policy) is maintained in a separate private repository.
 
 ## Contributing
 
