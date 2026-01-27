@@ -16,61 +16,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  enable-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable GitHub Pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/pages \
+            --method POST \
+            -f "build_type=workflow" 2>/dev/null || \
+          gh api repos/${{ github.repository }}/pages \
+            --method PUT \
+            -f "build_type=workflow" 2>/dev/null || \
+          echo "Pages may already be configured"
+
   deploy:
+    needs: enable-pages
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url || steps.gh_pages_url.outputs.url }}
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Strategy 1: Official GitHub Pages deployment via Actions
       - name: Setup Pages
-        id: setup_pages
         uses: actions/configure-pages@v5
-        continue-on-error: true
 
       - name: Upload artifact
-        if: steps.setup_pages.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
 
       - name: Deploy to GitHub Pages
-        if: steps.setup_pages.outcome == 'success'
         id: deployment
         uses: actions/deploy-pages@v4
-
-      # Strategy 2: Fallback — deploy to gh-pages branch
-      - name: Deploy to gh-pages branch (fallback)
-        if: steps.setup_pages.outcome == 'failure'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
-          publish_branch: gh-pages
-
-      - name: Enable GitHub Pages from gh-pages branch
-        if: steps.setup_pages.outcome == 'failure'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Try to create Pages site pointing to gh-pages branch
-          gh api repos/${{ github.repository }}/pages \
-            --method POST \
-            -f "source[branch]=gh-pages" \
-            -f "source[path]=/" || \
-          gh api repos/${{ github.repository }}/pages \
-            --method PUT \
-            -f "source[branch]=gh-pages" \
-            -f "source[path]=/" || \
-          echo "::warning::Could not enable Pages via API. Please enable manually: Settings > Pages > Source: gh-pages"
-
-      - name: Output Pages URL
-        id: gh_pages_url
-        run: |
-          REPO_NAME=$(echo "${{ github.repository }}" | cut -d/ -f2)
-          OWNER=$(echo "${{ github.repository }}" | cut -d/ -f1)
-          echo "url=https://${OWNER}.github.io/${REPO_NAME}/" >> "$GITHUB_OUTPUT"
-          echo "Landing page: https://${OWNER}.github.io/${REPO_NAME}/"
