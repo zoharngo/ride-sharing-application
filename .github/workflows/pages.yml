@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -16,23 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  enable-pages:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Enable GitHub Pages
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api repos/${{ github.repository }}/pages \
-            --method POST \
-            -f "build_type=workflow" 2>/dev/null || \
-          gh api repos/${{ github.repository }}/pages \
-            --method PUT \
-            -f "build_type=workflow" 2>/dev/null || \
-          echo "Pages may already be configured"
-
   deploy:
-    needs: enable-pages
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
