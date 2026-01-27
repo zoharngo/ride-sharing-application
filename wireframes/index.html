@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RideIL — MVP Wireframe Prototype</title>
+<!--
+  RideIL Interactive MVP Wireframe Prototype
+  ===========================================================
+  Technology: Vanilla HTML5 + CSS3 + JavaScript (no dependencies)
+  Purpose:    Demonstrates three key user flows:
+              1. Rider: Register → Request Ride → Trip → Payment → Rate
+              2. Driver: Register → Upload Docs → Go Online → Accept Trip → Complete
+              3. Admin:  Dashboard → Verification Queue → Approve/Reject
+  Usage:      Open this file directly in any modern browser.
+              Click the Rider / Driver / Admin tabs to switch views.
+              Interact with buttons and forms to walk through each flow.
+  ===========================================================
+-->
+<style>
+/* ===== CSS VARIABLES & RESET ===== */
+:root {
+  --primary: #1B73E8;
+  --primary-dark: #1557B0;
+  --success: #0D904F;
+  --danger: #D93025;
+  --warning: #F9AB00;
+  --bg: #F8F9FA;
+  --surface: #FFFFFF;
+  --text: #202124;
+  --text-secondary: #5F6368;
+  --border: #DADCE0;
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.15);
+  --phone-w: 375px;
+  --phone-h: 720px;
+  --header-h: 56px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #E8EAED; color: var(--text); }
+button { cursor: pointer; border: none; font-family: inherit; font-size: inherit; }
+input, select { font-family: inherit; font-size: 16px; }
+
+/* ===== LAYOUT ===== */
+.app-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+.app-title { text-align: center; margin-bottom: 8px; font-size: 24px; color: var(--primary); }
+.app-subtitle { text-align: center; margin-bottom: 20px; font-size: 14px; color: var(--text-secondary); }
+
+/* Tab bar */
+.tab-bar { display: flex; justify-content: center; gap: 4px; margin-bottom: 24px; }
+.tab-btn {
+  padding: 10px 32px; border-radius: 24px; font-size: 15px; font-weight: 500;
+  background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+.tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.tab-btn:hover:not(.active) { background: #E8F0FE; color: var(--primary); }
+
+/* View containers */
+.view { display: none; }
+.view.active { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; }
+
+/* ===== PHONE FRAME (Rider & Driver) ===== */
+.phone-frame {
+  width: var(--phone-w); height: var(--phone-h);
+  background: var(--surface); border-radius: 32px;
+  box-shadow: var(--shadow-lg); overflow: hidden;
+  border: 8px solid #333; position: relative;
+}
+.phone-notch {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 150px; height: 28px; background: #333;
+  border-radius: 0 0 16px 16px; z-index: 10;
+}
+.phone-screen { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+
+/* Screen header */
+.screen-header {
+  height: var(--header-h); padding: 0 16px; padding-top: 28px;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--primary); color: #fff; flex-shrink: 0;
+}
+.screen-header h2 { font-size: 18px; font-weight: 500; flex: 1; }
+.screen-header .back-btn { background: none; color: #fff; font-size: 20px; padding: 4px 8px; border-radius: 8px; }
+.screen-header .back-btn:hover { background: rgba(255,255,255,0.15); }
+
+/* Screen body */
+.screen-body { flex: 1; overflow-y: auto; padding: 16px; background: var(--bg); }
+
+/* Screen types (hidden by default, shown via JS) */
+.screen { display: none; flex-direction: column; height: 100%; }
+.screen.active { display: flex; }
+
+/* ===== COMMON COMPONENTS ===== */
+.btn {
+  display: block; width: 100%; padding: 14px; border-radius: var(--radius);
+  font-size: 16px; font-weight: 600; text-align: center; transition: all 0.15s;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-success { background: var(--success); color: #fff; }
+.btn-success:hover { background: #0A7340; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #B5221A; }
+.btn-outline { background: transparent; color: var(--primary); border: 2px solid var(--primary); }
+.btn-outline:hover { background: #E8F0FE; }
+.btn-ghost { background: transparent; color: var(--text-secondary); }
+.btn-sm { padding: 8px 16px; font-size: 14px; width: auto; display: inline-block; }
+
+.input-group { margin-bottom: 16px; }
+.input-group label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+.input-group input, .input-group select {
+  width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); transition: border 0.2s;
+}
+.input-group input:focus, .input-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(27,115,232,0.15); }
+
+.card {
+  background: var(--surface); border-radius: var(--radius); padding: 16px;
+  box-shadow: var(--shadow); margin-bottom: 12px;
+}
+
+.badge {
+  display: inline-block; padding: 4px 10px; border-radius: 12px;
+  font-size: 12px; font-weight: 600;
+}
+.badge-warning { background: #FEF7E0; color: #B36B00; }
+.badge-success { background: #E6F4EA; color: #137333; }
+.badge-danger { background: #FCE8E6; color: #C5221F; }
+.badge-info { background: #E8F0FE; color: #1967D2; }
+
+.divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+/* Map placeholder */
+.map-placeholder {
+  background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
+  border-radius: var(--radius); height: 200px; display: flex;
+  align-items: center; justify-content: center; color: var(--success);
+  font-size: 14px; font-weight: 500; position: relative; overflow: hidden;
+  margin-bottom: 12px;
+}
+.map-placeholder::before {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(0,0,0,0.03) 40px, rgba(0,0,0,0.03) 41px),
+              repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(0,0,0,0.03) 40px, rgba(0,0,0,0.03) 41px);
+}
+.map-placeholder .map-pin {
+  width: 32px; height: 32px; background: var(--danger); border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg); z-index: 1; box-shadow: var(--shadow);
+}
+.map-full { height: 100%; border-radius: 0; margin: 0; flex: 1; }
+
+/* OTP inputs */
+.otp-inputs { display: flex; gap: 8px; justify-content: center; margin: 24px 0; }
+.otp-inputs input {
+  width: 48px; height: 56px; text-align: center; font-size: 24px; font-weight: 700;
+  border: 2px solid var(--border); border-radius: 12px; background: var(--surface);
+}
+.otp-inputs input:focus { border-color: var(--primary); outline: none; }
+
+/* Rating stars */
+.stars { display: flex; gap: 8px; justify-content: center; margin: 16px 0; }
+.stars .star { font-size: 40px; color: var(--border); cursor: pointer; transition: color 0.15s; }
+.stars .star.filled { color: var(--warning); }
+.stars .star:hover { color: var(--warning); }
+
+/* Status pill */
+.status-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.status-dot.green { background: var(--success); }
+.status-dot.yellow { background: var(--warning); }
+.status-dot.red { background: var(--danger); }
+.status-dot.blue { background: var(--primary); }
+
+/* Driver info card */
+.driver-card { display: flex; gap: 12px; align-items: center; }
+.driver-avatar {
+  width: 56px; height: 56px; border-radius: 50%; background: #E8F0FE;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; font-weight: 700; color: var(--primary); flex-shrink: 0;
+}
+.driver-info { flex: 1; }
+.driver-info h4 { font-size: 16px; margin-bottom: 2px; }
+.driver-info p { font-size: 13px; color: var(--text-secondary); }
+
+/* Toggle switch */
+.toggle-container { display: flex; align-items: center; gap: 12px; justify-content: center; padding: 16px; }
+.toggle {
+  width: 64px; height: 34px; border-radius: 17px; background: var(--border);
+  position: relative; cursor: pointer; transition: background 0.3s;
+}
+.toggle.on { background: var(--success); }
+.toggle .toggle-knob {
+  width: 28px; height: 28px; border-radius: 50%; background: #fff;
+  position: absolute; top: 3px; left: 3px; transition: transform 0.3s;
+  box-shadow: var(--shadow);
+}
+.toggle.on .toggle-knob { transform: translateX(30px); }
+
+/* Trip request timer */
+.timer-ring {
+  width: 100px; height: 100px; margin: 16px auto;
+  border-radius: 50%; border: 6px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; font-weight: 700; color: var(--primary);
+  position: relative;
+}
+.timer-ring.urgent { border-color: var(--warning); color: var(--warning); }
+
+/* Loading spinner */
+.spinner {
+  width: 48px; height: 48px; border: 4px solid var(--border);
+  border-top-color: var(--primary); border-radius: 50%;
+  animation: spin 1s linear infinite; margin: 24px auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Fare breakdown */
+.fare-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+.fare-row.total { font-weight: 700; font-size: 18px; border-top: 2px solid var(--text); padding-top: 12px; margin-top: 8px; }
+
+/* Panic button */
+.panic-btn {
+  width: 56px; height: 56px; border-radius: 50%; background: var(--danger);
+  color: #fff; font-size: 12px; font-weight: 700; display: flex;
+  align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(217,48,37,0.4);
+  position: absolute; bottom: 16px; right: 16px; z-index: 5;
+}
+.panic-btn:hover { background: #B5221A; transform: scale(1.05); }
+
+/* ===== ADMIN DESKTOP VIEW ===== */
+.admin-layout { width: 100%; max-width: 1100px; }
+.admin-header {
+  background: var(--surface); padding: 16px 24px; border-radius: var(--radius);
+  display: flex; align-items: center; gap: 16px; margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.admin-header h2 { flex: 1; font-size: 20px; }
+.admin-nav { display: flex; gap: 8px; }
+.admin-nav button { padding: 8px 16px; border-radius: 8px; font-size: 14px; background: var(--bg); color: var(--text-secondary); }
+.admin-nav button.active { background: var(--primary); color: #fff; }
+.admin-panel { display: none; }
+.admin-panel.active { display: block; }
+
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat-card { background: var(--surface); padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow); text-align: center; }
+.stat-card .stat-value { font-size: 32px; font-weight: 700; color: var(--primary); }
+.stat-card .stat-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+.queue-item {
+  background: var(--surface); border-radius: var(--radius); padding: 16px;
+  box-shadow: var(--shadow); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 16px;
+}
+.queue-item .driver-avatar { width: 48px; height: 48px; font-size: 20px; }
+.queue-item .info { flex: 1; }
+.queue-item .info h4 { font-size: 15px; }
+.queue-item .info p { font-size: 13px; color: var(--text-secondary); }
+.queue-item .actions { display: flex; gap: 8px; }
+
+/* Document review */
+.doc-review-item {
+  display: flex; align-items: center; gap: 12px; padding: 12px;
+  background: var(--bg); border-radius: 8px; margin-bottom: 8px;
+}
+.doc-review-item .doc-icon { width: 40px; height: 40px; background: #E8F0FE; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.doc-review-item .doc-info { flex: 1; }
+.doc-review-item .doc-info h5 { font-size: 14px; }
+.doc-review-item .doc-info p { font-size: 12px; color: var(--text-secondary); }
+
+/* Progress stepper */
+.stepper { display: flex; align-items: center; margin: 16px 0; }
+.step {
+  flex: 1; text-align: center; position: relative;
+}
+.step::after {
+  content: ''; position: absolute; top: 14px; left: 50%; width: 100%;
+  height: 2px; background: var(--border); z-index: 0;
+}
+.step:last-child::after { display: none; }
+.step .step-circle {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--border);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #fff; position: relative; z-index: 1;
+}
+.step.done .step-circle { background: var(--success); }
+.step.active .step-circle { background: var(--primary); }
+.step .step-label { display: block; font-size: 10px; color: var(--text-secondary); margin-top: 4px; }
+
+/* RTL support */
+[dir="rtl"] .screen-header { flex-direction: row-reverse; }
+[dir="rtl"] .driver-card { flex-direction: row-reverse; }
+[dir="rtl"] .fare-row { flex-direction: row-reverse; }
+
+/* Lang toggle */
+.lang-toggle { position: fixed; top: 12px; right: 12px; z-index: 100; display: flex; gap: 4px; }
+.lang-toggle button { padding: 6px 10px; border-radius: 6px; font-size: 12px; background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border); }
+.lang-toggle button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* Responsive */
+@media (max-width: 600px) {
+  .phone-frame { width: 100%; max-width: var(--phone-w); height: 85vh; border-width: 4px; border-radius: 24px; }
+  .phone-notch { width: 120px; height: 22px; }
+  .tab-btn { padding: 8px 16px; font-size: 13px; }
+  .admin-layout { padding: 0 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Language toggle -->
+<div class="lang-toggle">
+  <button class="active" onclick="setLang('en')">EN</button>
+  <button onclick="setLang('he')">עב</button>
+</div>
+
+<div class="app-container">
+  <h1 class="app-title">RideIL</h1>
+  <p class="app-subtitle">MVP Wireframe Prototype — Interactive Demo</p>
+
+  <!-- Main Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchView('rider')">Rider App</button>
+    <button class="tab-btn" onclick="switchView('driver')">Driver App</button>
+    <button class="tab-btn" onclick="switchView('admin')">Admin Portal</button>
+  </div>
+
+  <!-- ==================== RIDER APP ==================== -->
+  <div id="view-rider" class="view active">
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+
+        <!-- RIDER: Splash -->
+        <div id="r-splash" class="screen active">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--primary);color:#fff;">
+            <div style="font-size:48px;font-weight:800;margin-bottom:8px;">RideIL</div>
+            <div style="font-size:14px;opacity:0.8;">Safe. Compliant. Connected.</div>
+            <div class="spinner" style="margin-top:32px;border-color:rgba(255,255,255,0.3);border-top-color:#fff;"></div>
+          </div>
+          <script>setTimeout(()=>riderGo('register'),1500)</script>
+        </div>
+
+        <!-- RIDER: Register -->
+        <div id="r-register" class="screen">
+          <div class="screen-header"><h2 data-i18n="register">Register</h2></div>
+          <div class="screen-body">
+            <div style="text-align:center;margin:24px 0 32px;">
+              <div style="font-size:36px;font-weight:800;color:var(--primary);">RideIL</div>
+              <p style="color:var(--text-secondary);margin-top:8px;" data-i18n="enter_phone">Enter your phone number to get started</p>
+            </div>
+            <div class="input-group">
+              <label data-i18n="phone_label">Phone Number</label>
+              <div style="display:flex;gap:8px;">
+                <input type="text" value="+972" style="width:72px;text-align:center;" readonly>
+                <input type="tel" id="rider-phone" placeholder="50-123-4567" style="flex:1;">
+              </div>
+            </div>
+            <div class="input-group">
+              <label data-i18n="name_label">Full Name</label>
+              <input type="text" id="rider-name" placeholder="Israel Israeli">
+            </div>
+            <div class="input-group">
+              <label data-i18n="lang_label">Preferred Language</label>
+              <select id="rider-lang">
+                <option value="he">עברית (Hebrew)</option>
+                <option value="en" selected>English</option>
+                <option value="ar">العربية (Arabic)</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="riderGo('otp')" data-i18n="get_otp">Get OTP Code</button>
+            <div style="text-align:center;margin-top:16px;">
+              <a href="#" style="font-size:13px;color:var(--text-secondary);" data-i18n="terms_link">By continuing you agree to our Terms of Service and Privacy Policy</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIDER: OTP -->
+        <div id="r-otp" class="screen">
+          <div class="screen-header">
+            <button class="back-btn" onclick="riderGo('register')">←</button>
+            <h2 data-i18n="verify">Verify Phone</h2>
+          </div>
+          <div class="screen-body">
+            <div style="text-align:center;margin-top:24px;">
+              <p data-i18n="otp_sent">We sent a 6-digit code to</p>
+              <p style="font-weight:700;font-size:18px;margin-top:4px;">+972 50-123-4567</p>
+            </div>
+            <div class="otp-inputs">
+              <input type="text" maxlength="1" value="4" readonly>
+              <input type="text" maxlength="1" value="8" readonly>
+              <input type="text" maxlength="1" value="2" readonly>
+              <input type="text" maxlength="1" value="9" readonly>
+              <input type="text" maxlength="1" value="1" readonly>
+              <input type="text" maxlength="1" id="otp-last" maxlength="1" placeholder="·">
+            </div>
+            <button class="btn btn-primary" onclick="riderGo('home')" data-i18n="verify_btn">Verify & Continue</button>
+            <div style="text-align:center;margin-top:16px;">
+              <button class="btn-ghost" style="font-size:14px;color:var(--primary);" data-i18n="resend">Resend code (27s)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIDER: Home -->
+        <div id="r-home" class="screen">
+          <div class="screen-header">
+            <h2 data-i18n="home">RideIL</h2>
+            <button class="back-btn" onclick="riderGo('profile')" style="font-size:16px;">👤</button>
+          </div>
+          <div class="screen-body" style="padding:0;display:flex;flex-direction:column;">
+            <div class="map-placeholder map-full">
+              <div class="map-pin"></div>
+            </div>
+            <div style="padding:16px;background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;margin-top:-12px;position:relative;z-index:2;">
+              <div class="input-group" style="margin-bottom:12px;">
+                <input type="text" placeholder="Where to?" style="background:var(--bg);font-size:18px;padding:16px;" onclick="riderGo('destination')" readonly>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-outline btn-sm" onclick="riderGo('destination')">🏠 Home</button>
+                <button class="btn btn-outline btn-sm" onclick="riderGo('destination')">🏢 Work</button>
+                <button class="btn btn-outline btn-sm" onclick="riderGo('trips')">📋 Trips</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIDER: Destination -->
+        <div id="r-destination" class="screen">
+          <div class="screen-header">
+            <button class="back-btn" onclick="riderGo('home')">←</button>
+            <h2 data-i18n="set_route">Set Route</h2>
+          </div>
+          <div class="screen-body">
+            <div class="input-group">
+              <label data-i18n="pickup">Pickup</label>
+              <input type="text" value="📍 Current Location — Dizengoff St 50, Tel Aviv" readonly style="background:var(--surface);">
+            </div>
+            <div class="input-group">
+              <label data-i18n="destination">Destination</label>
+              <input type="text" id="dest-input" placeholder="Search destination..." value="">
+            </div>
+            <div class="card" onclick="document.getElementById('dest-input').value='Ben Gurion Airport (TLV)'; riderGo('confirm');" style="cursor:pointer;">
+              <div style="display:flex;gap:12px;align-items:center;">
+                <span>✈️</span>
+                <div><strong>Ben Gurion Airport (TLV)</strong><br><span style="font-size:13px;color:var(--text-secondary);">Airport Rd, Lod</span></div>
+              </div>
+            </div>
+            <div class="card" onclick="document.getElementById('dest-input').value='Jerusalem Central Station'; riderGo('confirm');" style="cursor:pointer;">
+              <div style="display:flex;gap:12px;align-items:center;">
+                <span>🚌</span>
+                <div><strong>Jerusalem Central Station</strong><br><span style="font-size:13px;color:var(--text-secondary);">Jaffa Rd, Jerusalem</span></div>
+              </div>
+            </div>
+            <div class="card" onclick="document.getElementById('dest-input').value='Azrieli Center'; riderGo('confirm');" style="cursor:pointer;">
+              <div style="display:flex;gap:12px;align-items:center;">
+                <span>🏙️</span>
+                <div><strong>Azrieli Center</strong><br><span style="font-size:13px;color:var(--text-secondary);">Derech Menachem Begin, Tel Aviv</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIDER: Confirm Ride -->
+        <div id="r-confirm" class="screen">
+          <div class="screen-header">
+            <button class="back-btn" onclick="riderGo('destination')">←</button>
+            <h2 data-i18n="confirm_ride">Confirm Ride</h2>
+          </div>
+          <div class="screen-body">
+            <div class="map-placeholder" style="height:160px;">
+              <div style="z-index:1;font-size:13px;">📍 Dizengoff St → ✈️ TLV Airport</div>
+            </div>
+            <div class="card">
+              <div class="fare-row"><span data-i18n="est_fare">Estimated Fare</span><span style="font-weight:700;color:var(--primary);">₪85 – ₪110</span></div>
+              <div class="fare-row"><span data-i18n="est_time">Estimated Time</span><span>22–30 min</span></div>
+              <div class="fare-row"><span data-i18n="distance">Distance</span><span>18.5 km</span></div>
+              <div style="margin-top:8px;padding:8px;background:#FEF7E0;border-radius:8px;font-size:12px;color:#B36B00;">
+                ⚠️ Final fare calculated by regulated taxi meter
+              </div>
+            </div>
+            <div class="card">
+              <div class="input-group" style="margin-bottom:8px;">
+                <label data-i18n="payment">Payment Method</label>
+                <select id="payment-select">
+                  <option value="card">💳 Visa •••• 4242</option>
+                  <option value="cash">💵 Cash</option>
+                </select>
+              </div>
+              <label style="display:flex;align-items:center;gap:8px;font-size:14px;">
+                <input type="checkbox" id="wheelchair-check"> ♿ Wheelchair accessible vehicle
+              </label>
+            </div>
+            <button class="btn btn-primary" onclick="riderGo('finding')" style="font-size:18px;" data-i18n="request_taxi">🚖 Request Taxi</button>
+          </div>
+        </div>
+
+        <!-- RIDER: Finding Driver -->
+        <div id="r-finding" class="screen">
+          <div class="screen-header"><h2 data-i18n="finding">Finding Driver</h2></div>
+          <div class="screen-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div class="spinner" style="width:64px;height:64px;border-width:5px;"></div>
+            <h3 style="margin-top:24px;" data-i18n="searching">Searching for nearby drivers...</h3>
+            <p style="color:var(--text-secondary);margin-top:8px;text-align:center;" data-i18n="matching_info">Matching you with the best available driver within 5 km</p>
+            <button class="btn btn-outline" style="margin-top:32px;width:auto;padding:10px 32px;" onclick="riderGo('home')" data-i18n="cancel">Cancel</button>
+          </div>
+          <script>
+            // Auto-advance to assigned after 2.5s
+            document.getElementById('r-finding').addEventListener('transitionend', () => {});
+          </script>
+        </div>
+
+        <!-- RIDER: Driver Assigned -->
+        <div id="r-assigned" class="screen">
+          <div class="screen-header"><h2 data-i18n="driver_assigned">Driver Assigned</h2></div>
+          <div class="screen-body" style="padding:0;display:flex;flex-direction:column;">
+            <div class="map-placeholder" style="height:180px;border-radius:0;margin:0;">
+              <div style="z-index:1;">🚖 Driver en route to pickup</div>
+            </div>
+            <div style="padding:16px;">
+              <div class="card">
+                <div class="driver-card">
+                  <div class="driver-avatar">M</div>
+                  <div class="driver-info">
+                    <h4>Moshe Cohen</h4>
+                    <p>⭐ 4.8 — 1,247 trips</p>
+                    <p style="font-weight:600;margin-top:4px;">🚗 Toyota Camry — White</p>
+                    <p style="font-size:15px;font-weight:700;color:var(--primary);">12-345-67</p>
+                  </div>
+                </div>
+              </div>
+              <div class="card" style="text-align:center;">
+                <p style="font-size:13px;color:var(--text-secondary);" data-i18n="arriving_in">Arriving in</p>
+                <p style="font-size:36px;font-weight:800;color:var(--primary);">4 min</p>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-outline" style="flex:1;" onclick="alert('Calling driver...')">📞 Call</button>
+                <button class="btn btn-outline" style="flex:1;" onclick="alert('Trip link copied!')">📤 Share Trip</button>
+              </div>
+              <button class="btn btn-primary" onclick="riderGo('inprogress')" style="margin-top:12px;" data-i18n="sim_pickup">▶ Simulate Pickup & Start</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIDER: Trip In Progress -->
+        <div id="r-inprogress" class="screen">
+          <div class="screen-header" style="background:var(--success);"><h2 data-i18n="trip_progress">Trip In Progress</h2></div>
+          <div class="screen-body" style="padding:0;display:flex;flex-direction:column;position:relative;">
+            <div class="map-placeholder map-full" style="background:linear-gradient(135deg,#E3F2FD,#BBDEFB);">
+              <div style="z-index:1;">🚖 → ✈️ En route to Ben Gurion Airport</div>
+            </div>
+            <div style="padding:12px 16px;background:var(--surface);border-top:1px solid var(--border);">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <p style="font-size:13px;color:var(--text-secondary);" data-i18n="eta">ETA</p>
+                  <p style="font-size:24px;font-weight:700;" id="eta-display">18 min</p>
+                </div>
+                <div style="text-align:right;">
+                  <p style="font-size:13px;color:var(--text-secondary);">Moshe Cohen</p>
+                  <p style="font-size:14px;">Toyota Camry • 12-345-67</p>
+                </div>
+              </div>
+            </div>
+            <button class="panic-btn" onclick="riderGo('panic')" title="Emergency">SOS</button>
+            <div style="padding:12px 16px;">
+              <button class="btn btn-primary" onclick="riderGo('complete')" data-i18n="sim_complete">▶ Simulate Trip Complete</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIDER: Panic -->
+        <div id="r-panic" class="screen">
+          <div class="screen-header" style="background:var(--danger);"><h2>⚠️ Emergency</h2></div>
+          <div class="screen-body" style="text-align:center;">
+            <div style="margin:24px 0;">
+              <div style="font-size:48px;">🚨</div>
+              <h3 style="margin-top:12px;color:var(--danger);">Support Team Alerted</h3>
+              <p style="margin-top:8px;color:var(--text-secondary);">Your location has been shared. Emergency contacts notified.</p>
+            </div>
+            <div class="card" style="text-align:left;">
+              <p style="font-weight:600;margin-bottom:8px;">Emergency Services</p>
+              <button class="btn btn-danger" style="margin-bottom:8px;" onclick="alert('Dialing Israel Police: 100')">📞 Police — 100</button>
+              <button class="btn btn-danger" onclick="alert('Dialing MDA: 101')">🚑 Magen David Adom — 101</button>
+            </div>
+            <button class="btn btn-outline" style="margin-top:16px;" onclick="riderGo('inprogress')">← Back to Trip</button>
+          </div>
+        </div>
+
+        <!-- RIDER: Trip Complete -->
+        <div id="r-complete" class="screen">
+          <div class="screen-header"><h2 data-i18n="trip_complete">Trip Complete</h2></div>
+          <div class="screen-body">
+            <div style="text-align:center;margin-bottom:16px;">
+              <div style="font-size:48px;">✅</div>
+              <h3 style="margin-top:8px;" data-i18n="thanks">Thanks for riding!</h3>
+            </div>
+            <div class="card">
+              <p style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">📍 Dizengoff St → ✈️ Ben Gurion Airport</p>
+              <div class="fare-row"><span data-i18n="base_fare">Base fare (flag drop)</span><span>₪12.10</span></div>
+              <div class="fare-row"><span data-i18n="distance_charge">Distance (18.5 km)</span><span>₪62.90</span></div>
+              <div class="fare-row"><span data-i18n="time_charge">Time (24 min)</span><span>₪14.40</span></div>
+              <div class="fare-row"><span data-i18n="subtotal">Subtotal</span><span>₪89.40</span></div>
+              <div class="fare-row"><span data-i18n="vat">VAT (17%)</span><span>₪15.20</span></div>
+              <div class="fare-row total"><span data-i18n="total">Total</span><span>₪104.60</span></div>
+              <div style="margin-top:12px;padding:8px;background:#E6F4EA;border-radius:8px;text-align:center;font-size:13px;color:var(--success);">
+                💳 Paid via Visa •••• 4242
+              </div>
+            </div>
+            <div class="card" style="text-align:center;">
+              <p style="font-size:14px;margin-bottom:8px;" data-i18n="rate_driver">Rate your driver</p>
+              <div class="stars" id="rider-stars">
+                <span class="star" onclick="setStars('rider-stars',1)">★</span>
+                <span class="star" onclick="setStars('rider-stars',2)">★</span>
+                <span class="star" onclick="setStars('rider-stars',3)">★</span>
+                <span class="star" onclick="setStars('rider-stars',4)">★</span>
+                <span class="star" onclick="setStars('rider-stars',5)">★</span>
+              </div>
+            </div>
+            <button class="btn btn-outline" onclick="alert('Receipt #RIL-2026-00142 downloaded.')" data-i18n="download_receipt">📄 Download Receipt (PDF)</button>
+            <button class="btn btn-primary" style="margin-top:8px;" onclick="riderGo('home')" data-i18n="done">Done</button>
+          </div>
+        </div>
+
+        <!-- RIDER: Profile -->
+        <div id="r-profile" class="screen">
+          <div class="screen-header">
+            <button class="back-btn" onclick="riderGo('home')">←</button>
+            <h2 data-i18n="profile">Profile</h2>
+          </div>
+          <div class="screen-body">
+            <div style="text-align:center;margin-bottom:16px;">
+              <div class="driver-avatar" style="width:72px;height:72px;font-size:32px;margin:0 auto;">I</div>
+              <h3 style="margin-top:8px;">Israel Israeli</h3>
+              <p style="color:var(--text-secondary);">+972 50-123-4567</p>
+            </div>
+            <div class="card" onclick="riderGo('trips')" style="cursor:pointer;"><span>📋</span> Trip History</div>
+            <div class="card" style="cursor:pointer;"><span>💳</span> Payment Methods</div>
+            <div class="card" style="cursor:pointer;"><span>📍</span> Saved Places</div>
+            <div class="card" style="cursor:pointer;"><span>🆘</span> Emergency Contacts</div>
+            <div class="card" style="cursor:pointer;"><span>🌐</span> Language: English</div>
+            <div class="card" style="cursor:pointer;"><span>📜</span> Privacy Policy</div>
+            <div class="card" style="cursor:pointer;"><span>🗑️</span> Delete My Data</div>
+            <button class="btn btn-outline" style="margin-top:8px;color:var(--danger);border-color:var(--danger);" data-i18n="logout">Log Out</button>
+          </div>
+        </div>
+
+        <!-- RIDER: Trip History -->
+        <div id="r-trips" class="screen">
+          <div class="screen-header">
+            <button class="back-btn" onclick="riderGo('profile')">←</button>
+            <h2 data-i18n="trip_history">Trip History</h2>
+          </div>
+          <div class="screen-body">
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span class="badge badge-success">Completed</span>
+                <span style="font-size:13px;color:var(--text-secondary);">Jan 27, 14:30</span>
+              </div>
+              <p style="font-size:14px;">Dizengoff St → Ben Gurion Airport</p>
+              <p style="font-weight:700;margin-top:4px;">₪104.60</p>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span class="badge badge-success">Completed</span>
+                <span style="font-size:13px;color:var(--text-secondary);">Jan 26, 09:15</span>
+              </div>
+              <p style="font-size:14px;">Rothschild Blvd → Azrieli Center</p>
+              <p style="font-weight:700;margin-top:4px;">₪32.80</p>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span class="badge badge-danger">Cancelled</span>
+                <span style="font-size:13px;color:var(--text-secondary);">Jan 25, 18:40</span>
+              </div>
+              <p style="font-size:14px;">Carmel Market → HaYarkon Park</p>
+              <p style="font-weight:700;margin-top:4px;">₪0.00</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== DRIVER APP ==================== -->
+  <div id="view-driver" class="view">
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+
+        <!-- DRIVER: Register -->
+        <div id="d-register" class="screen active">
+          <div class="screen-header" style="background:#1E8E3E;"><h2>Driver Registration</h2></div>
+          <div class="screen-body">
+            <div style="text-align:center;margin:16px 0 24px;">
+              <div style="font-size:36px;font-weight:800;color:#1E8E3E;">RideIL</div>
+              <p style="font-size:14px;color:var(--text-secondary);">Driver Partner Program</p>
+            </div>
+            <div class="input-group">
+              <label>Full Legal Name</label>
+              <input type="text" value="Moshe Cohen" placeholder="As on taxi license">
+            </div>
+            <div class="input-group">
+              <label>Phone Number</label>
+              <div style="display:flex;gap:8px;">
+                <input type="text" value="+972" style="width:72px;text-align:center;" readonly>
+                <input type="tel" value="52-987-6543" style="flex:1;">
+              </div>
+            </div>
+            <div class="input-group">
+              <label>Email</label>
+              <input type="email" value="moshe@email.co.il" placeholder="For account recovery">
+            </div>
+            <button class="btn btn-success" onclick="driverGo('documents')">Continue to Documents →</button>
+          </div>
+        </div>
+
+        <!-- DRIVER: Document Upload -->
+        <div id="d-documents" class="screen">
+          <div class="screen-header" style="background:#1E8E3E;">
+            <button class="back-btn" onclick="driverGo('register')">←</button>
+            <h2>Upload Documents</h2>
+          </div>
+          <div class="screen-body">
+            <div class="stepper">
+              <div class="step done"><span class="step-circle">✓</span><span class="step-label">Info</span></div>
+              <div class="step active"><span class="step-circle">2</span><span class="step-label">License</span></div>
+              <div class="step"><span class="step-circle">3</span><span class="step-label">Vehicle</span></div>
+              <div class="step"><span class="step-circle">4</span><span class="step-label">Review</span></div>
+            </div>
+
+            <div class="card">
+              <h4 style="margin-bottom:12px;">📄 Taxi Operating License</h4>
+              <div style="border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;margin-bottom:12px;cursor:pointer;background:var(--bg);" onclick="this.innerHTML='<div style=color:var(--success);font-weight:600>✅ taxi_license.jpg uploaded</div>'">
+                📷 Tap to take photo or upload
+              </div>
+              <div class="input-group"><label>License Number</label><input type="text" value="TL-2024-78901"></div>
+              <div class="input-group"><label>Expiry Date</label><input type="date" value="2027-03-15"></div>
+            </div>
+
+            <div class="card">
+              <h4 style="margin-bottom:12px;">🪪 Driver's License</h4>
+              <div style="border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;margin-bottom:12px;cursor:pointer;background:var(--bg);" onclick="this.innerHTML='<div style=color:var(--success);font-weight:600>✅ driver_license.jpg uploaded</div>'">
+                📷 Tap to take photo or upload
+              </div>
+              <div class="input-group"><label>Expiry Date</label><input type="date" value="2028-06-20"></div>
+            </div>
+
+            <button class="btn btn-success" onclick="driverGo('vehicle')">Continue to Vehicle →</button>
+          </div>
+        </div>
+
+        <!-- DRIVER: Vehicle Registration -->
+        <div id="d-vehicle" class="screen">
+          <div class="screen-header" style="background:#1E8E3E;">
+            <button class="back-btn" onclick="driverGo('documents')">←</button>
+            <h2>Vehicle Details</h2>
+          </div>
+          <div class="screen-body">
+            <div class="stepper">
+              <div class="step done"><span class="step-circle">✓</span><span class="step-label">Info</span></div>
+              <div class="step done"><span class="step-circle">✓</span><span class="step-label">License</span></div>
+              <div class="step active"><span class="step-circle">3</span><span class="step-label">Vehicle</span></div>
+              <div class="step"><span class="step-circle">4</span><span class="step-label">Review</span></div>
+            </div>
+            <div class="card">
+              <div class="input-group"><label>License Plate</label><input type="text" value="12-345-67"></div>
+              <div style="display:flex;gap:8px;">
+                <div class="input-group" style="flex:1;"><label>Make</label><input type="text" value="Toyota"></div>
+                <div class="input-group" style="flex:1;"><label>Model</label><input type="text" value="Camry"></div>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <div class="input-group" style="flex:1;"><label>Year</label><input type="number" value="2023"></div>
+                <div class="input-group" style="flex:1;"><label>Color</label><input type="text" value="White"></div>
+              </div>
+              <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-top:8px;">
+                <input type="checkbox"> ♿ Wheelchair accessible
+              </label>
+            </div>
+            <div class="card">
+              <h4 style="margin-bottom:8px;">Documents</h4>
+              <div style="border:2px dashed var(--border);border-radius:8px;padding:16px;text-align:center;margin-bottom:8px;cursor:pointer;background:var(--bg);" onclick="this.innerHTML='<span style=color:var(--success)>✅ Taxi Vehicle License</span>'">
+                📄 Taxi Vehicle License
+              </div>
+              <div style="border:2px dashed var(--border);border-radius:8px;padding:16px;text-align:center;margin-bottom:8px;cursor:pointer;background:var(--bg);" onclick="this.innerHTML='<span style=color:var(--success)>✅ Vehicle Inspection</span>'">
+                📄 Vehicle Inspection Certificate
+              </div>
+              <div style="border:2px dashed var(--border);border-radius:8px;padding:16px;text-align:center;margin-bottom:8px;cursor:pointer;background:var(--bg);" onclick="this.innerHTML='<span style=color:var(--success)>✅ Insurance Policy</span>'">
+                📄 Insurance Policy
+              </div>
+            </div>
+            <button class="btn btn-success" onclick="driverGo('pending')">Submit for Review →</button>
+          </div>
+        </div>
+
+        <!-- DRIVER: Pending Verification -->
+        <div id="d-pending" class="screen">
+          <div class="screen-header" style="background:#1E8E3E;"><h2>Application Status</h2></div>
+          <div class="screen-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div class="stepper" style="width:100%;margin-bottom:24px;">
+              <div class="step done"><span class="step-circle">✓</span><span class="step-label">Info</span></div>
+              <div class="step done"><span class="step-circle">✓</span><span class="step-label">License</span></div>
+              <div class="step done"><span class="step-circle">✓</span><span class="step-label">Vehicle</span></div>
+              <div class="step active"><span class="step-circle">4</span><span class="step-label">Review</span></div>
+            </div>
+            <div style="font-size:48px;">⏳</div>
+            <h3 style="margin-top:12px;">Under Review</h3>
+            <p style="color:var(--text-secondary);margin-top:8px;text-align:center;">Your documents are being reviewed by our compliance team. This usually takes 1–2 business days.</p>
+            <div class="card" style="width:100%;margin-top:24px;">
+              <div class="status-row"><span class="status-dot green"></span><span>Taxi Operating License</span><span class="badge badge-success" style="margin-left:auto;">Uploaded</span></div>
+              <div class="status-row"><span class="status-dot green"></span><span>Driver's License</span><span class="badge badge-success" style="margin-left:auto;">Uploaded</span></div>
+              <div class="status-row"><span class="status-dot green"></span><span>Vehicle Registration</span><span class="badge badge-success" style="margin-left:auto;">Uploaded</span></div>
+              <div class="status-row"><span class="status-dot yellow"></span><span>Insurance Policy</span><span class="badge badge-warning" style="margin-left:auto;">Pending Review</span></div>
+            </div>
+            <button class="btn btn-success" style="margin-top:16px;" onclick="driverGo('home')">▶ Simulate Approval</button>
+          </div>
+        </div>
+
+        <!-- DRIVER: Home -->
+        <div id="d-home" class="screen">
+          <div class="screen-header" style="background:#1E8E3E;"><h2>RideIL Driver</h2></div>
+          <div class="screen-body" style="padding:0;display:flex;flex-direction:column;">
+            <div class="map-placeholder map-full" style="background:linear-gradient(135deg,#FFF3E0,#FFE0B2);">
+              <div style="z-index:1;font-size:14px;" id="driver-map-status">You are offline</div>
+            </div>
+            <div style="padding:16px;background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;margin-top:-12px;position:relative;z-index:2;">
+              <div class="toggle-container">
+                <span id="driver-status-label" style="font-weight:600;font-size:18px;color:var(--text-secondary);">OFFLINE</span>
+                <div class="toggle" id="driver-toggle" onclick="toggleDriverOnline()">
+                  <div class="toggle-knob"></div>
+                </div>
+              </div>
+              <div class="card" style="text-align:center;">
+                <p style="font-size:13px;color:var(--text-secondary);">Today's Earnings</p>
+                <p style="font-size:28px;font-weight:700;color:var(--success);">₪0.00</p>
+                <p style="font-size:13px;color:var(--text-secondary);">0 trips completed</p>
+              </div>
+              <button class="btn btn-success" id="sim-request-btn" style="display:none;" onclick="driverGo('request')">▶ Simulate Incoming Request</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- DRIVER: Incoming Request -->
+        <div id="d-request" class="screen">
+          <div class="screen-header" style="background:#F9AB00;"><h2 style="color:#333;">🔔 Ride Request!</h2></div>
+          <div class="screen-body" style="display:flex;flex-direction:column;align-items:center;">
+            <div class="timer-ring" id="request-timer">30</div>
+            <div class="card" style="width:100%;">
+              <div class="fare-row"><span>📍 Pickup</span><span style="font-weight:600;">Rothschild Blvd 55</span></div>
+              <div class="fare-row"><span>📏 Distance to pickup</span><span>1.2 km</span></div>
+              <div class="fare-row"><span>💰 Estimated fare</span><span style="font-weight:600;">₪45 – ₪60</span></div>
+              <div class="fare-row"><span>⭐ Rider rating</span><span>4.7</span></div>
+              <div class="fare-row"><span>💳 Payment</span><span>Card</span></div>
+            </div>
+            <div style="display:flex;gap:12px;width:100%;margin-top:8px;">
+              <button class="btn btn-danger" style="flex:1;" onclick="driverGo('home')">✗ Decline</button>
+              <button class="btn btn-success" style="flex:2;" onclick="driverGo('navigation')">✓ Accept</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- DRIVER: Navigation / En Route -->
+        <div id="d-navigation" class="screen">
+          <div class="screen-header" style="background:#1E8E3E;"><h2>Navigating to Pickup</h2></div>
+          <div class="screen-body" style="padding:0;display:flex;flex-direction:column;position:relative;">
+            <div class="map-placeholder map-full" style="background:linear-gradient(135deg,#E3F2FD,#BBDEFB);">
+              <div style="z-index:1;">🚖 → 📍 Rothschild Blvd 55 (1.2 km)</div>
+            </div>
+            <div style="padding:16px;background:var(--surface);border-top:1px solid var(--border);">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <div>
+                  <p style="font-size:13px;color:var(--text-secondary);">Rider</p>
+                  <p style="font-weight:600;">Yael Levi ⭐ 4.7</p>
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="alert('Calling rider...')">📞</button>
+              </div>
+              <button class="btn btn-success" onclick="driverGo('arrived')">📍 Arrived at Pickup</button>
+            </div>
+            <button class="panic-btn" onclick="alert('Support alerted. Your location has been shared.')" title="Emergency">SOS</button>
+          </div>
+        </div>
+
+        <!-- DRIVER: Arrived / Start Trip -->
+        <div id="d-arrived" class="screen">
+          <div class="screen-header" style="background:#1E8E3E;"><h2>At Pickup</h2></div>
+          <div class="screen-body" style="text-align:center;">
+            <div style="margin:24px 0;">
+              <div style="font-size:48px;">📍</div>
+              <h3 style="margin-top:12px;">Waiting for Rider</h3>
+              <p style="color:var(--text-secondary);margin-top:4px;">Yael Levi — Rothschild Blvd 55</p>
+              <p style="font-size:13px;color:var(--warning);margin-top:8px;">Pickup timeout: 5:00 remaining</p>
+            </div>
+            <div class="card" style="text-align:left;">
+              <div class="input-group">
+                <label>Meter Reading (Start)</label>
+                <input type="number" id="meter-start" value="15234.5" step="0.1">
+              </div>
+            </div>
+            <button class="btn btn-success" style="font-size:18px;" onclick="driverGo('d-trip')">▶ Start Trip</button>
+            <button class="btn btn-outline" style="margin-top:8px;" onclick="driverGo('home')">Rider No-Show</button>
+          </div>
+        </div>
+
+        <!-- DRIVER: Trip In Progress -->
+        <div id="d-d-trip" class="screen">
+          <div class="screen-header" style="background:#1E8E3E;"><h2>Trip In Progress</h2></div>
+          <div class="screen-body" style="padding:0;display:flex;flex-direction:column;position:relative;">
+            <div class="map-placeholder map-full" style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);">
+              <div style="z-index:1;">🚖 → 🏙️ Navigating to destination</div>
+            </div>
+            <div style="padding:16px;background:var(--surface);border-top:1px solid var(--border);">
+              <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                <div><span style="font-size:13px;color:var(--text-secondary);">Duration</span><br><strong id="trip-duration">12:45</strong></div>
+                <div><span style="font-size:13px;color:var(--text-secondary);">Distance</span><br><strong>8.2 km</strong></div>
+                <div><span style="font-size:13px;color:var(--text-secondary);">ETA</span><br><strong>6 min</strong></div>
+              </div>
+              <button class="btn btn-success" style="font-size:18px;" onclick="driverGo('d-complete')">⏹ Complete Trip</button>
+            </div>
+            <button class="panic-btn" onclick="alert('Support alerted.')" title="Emergency">SOS</button>
+          </div>
+        </div>
+
+        <!-- DRIVER: Complete Trip -->
+        <div id="d-d-complete" class="screen">
+          <div class="screen-header" style="background:#1E8E3E;"><h2>Trip Summary</h2></div>
+          <div class="screen-body">
+            <div style="text-align:center;margin-bottom:16px;">
+              <div style="font-size:48px;">✅</div>
+              <h3 style="margin-top:8px;">Trip Completed!</h3>
+            </div>
+            <div class="card">
+              <div class="input-group">
+                <label>Meter Reading (End)</label>
+                <input type="number" id="meter-end" value="15243.2" step="0.1">
+              </div>
+            </div>
+            <div class="card">
+              <div class="fare-row"><span>Base fare</span><span>₪12.10</span></div>
+              <div class="fare-row"><span>Distance (8.7 km)</span><span>₪29.60</span></div>
+              <div class="fare-row"><span>Time (14 min)</span><span>₪8.40</span></div>
+              <div class="fare-row"><span>Subtotal</span><span>₪50.10</span></div>
+              <div class="fare-row"><span>VAT (17%)</span><span>₪8.52</span></div>
+              <div class="fare-row total"><span>Total</span><span>₪58.62</span></div>
+              <div style="margin-top:8px;padding:8px;background:#E6F4EA;border-radius:8px;text-align:center;font-size:13px;color:var(--success);">
+                💳 Payment processed
+              </div>
+            </div>
+            <div class="card" style="text-align:center;">
+              <p style="font-size:14px;margin-bottom:8px;">Rate your rider</p>
+              <div class="stars" id="driver-stars">
+                <span class="star" onclick="setStars('driver-stars',1)">★</span>
+                <span class="star" onclick="setStars('driver-stars',2)">★</span>
+                <span class="star" onclick="setStars('driver-stars',3)">★</span>
+                <span class="star" onclick="setStars('driver-stars',4)">★</span>
+                <span class="star" onclick="setStars('driver-stars',5)">★</span>
+              </div>
+            </div>
+            <button class="btn btn-success" onclick="driverGo('home')">Back to Home</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ADMIN PORTAL ==================== -->
+  <div id="view-admin" class="view">
+    <div class="admin-layout">
+      <div class="admin-header">
+        <h2>🛡️ RideIL Admin Portal</h2>
+        <div class="admin-nav">
+          <button class="active" onclick="adminPanel('dashboard',this)">Dashboard</button>
+          <button onclick="adminPanel('queue',this)">Verification Queue</button>
+          <button onclick="adminPanel('review',this)">Driver Detail</button>
+        </div>
+        <span style="font-size:13px;color:var(--text-secondary);">Admin: Sarah M.</span>
+      </div>
+
+      <!-- Dashboard -->
+      <div id="ap-dashboard" class="admin-panel active">
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-value">47</div><div class="stat-label">Active Drivers</div></div>
+          <div class="stat-card"><div class="stat-value" style="color:var(--warning);">8</div><div class="stat-label">Pending Verification</div></div>
+          <div class="stat-card"><div class="stat-value" style="color:var(--success);">156</div><div class="stat-label">Trips Today</div></div>
+          <div class="stat-card"><div class="stat-value" style="color:var(--danger);">3</div><div class="stat-label">Expiring Documents</div></div>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:12px;">⚠️ Upcoming Document Expirations</h3>
+          <div class="queue-item">
+            <div class="driver-avatar" style="background:#FCE8E6;color:var(--danger);">A</div>
+            <div class="info"><h4>Avi Goldstein</h4><p>Insurance Policy expires in <strong style="color:var(--danger);">3 days</strong></p></div>
+            <span class="badge badge-danger">Critical</span>
+          </div>
+          <div class="queue-item">
+            <div class="driver-avatar" style="background:#FEF7E0;color:#B36B00;">D</div>
+            <div class="info"><h4>David Peretz</h4><p>Vehicle Inspection expires in <strong style="color:var(--warning);">14 days</strong></p></div>
+            <span class="badge badge-warning">Warning</span>
+          </div>
+          <div class="queue-item">
+            <div class="driver-avatar" style="background:#FEF7E0;color:#B36B00;">R</div>
+            <div class="info"><h4>Rachel Levy</h4><p>Medical Certificate expires in <strong style="color:var(--warning);">29 days</strong></p></div>
+            <span class="badge badge-warning">Warning</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:12px;">📊 Recent Activity</h3>
+          <div style="font-size:14px;">
+            <div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
+              <span>Driver Moshe Cohen approved</span><span style="color:var(--text-secondary);">2 hours ago</span>
+            </div>
+            <div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
+              <span>Complaint #C-2026-084 resolved</span><span style="color:var(--text-secondary);">5 hours ago</span>
+            </div>
+            <div style="padding:8px 0;display:flex;justify-content:space-between;">
+              <span>Safety incident #SI-042 closed</span><span style="color:var(--text-secondary);">Yesterday</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Verification Queue -->
+      <div id="ap-queue" class="admin-panel">
+        <div class="card">
+          <h3 style="margin-bottom:16px;">📋 Pending Driver Verifications (8)</h3>
+          <div class="queue-item">
+            <div class="driver-avatar">N</div>
+            <div class="info"><h4>Noam Ben-David</h4><p>Submitted: Jan 26, 2026 — 5 documents uploaded</p></div>
+            <div class="actions">
+              <button class="btn btn-primary btn-sm" onclick="adminPanel('review',document.querySelector('.admin-nav button:last-child'))">Review</button>
+            </div>
+          </div>
+          <div class="queue-item">
+            <div class="driver-avatar">Y</div>
+            <div class="info"><h4>Yossi Amar</h4><p>Submitted: Jan 25, 2026 — 4 documents uploaded</p></div>
+            <div class="actions">
+              <button class="btn btn-primary btn-sm" onclick="adminPanel('review',document.querySelector('.admin-nav button:last-child'))">Review</button>
+            </div>
+          </div>
+          <div class="queue-item">
+            <div class="driver-avatar">E</div>
+            <div class="info"><h4>Eitan Shapira</h4><p>Submitted: Jan 25, 2026 — 3 documents (missing insurance)</p></div>
+            <div class="actions">
+              <button class="btn btn-primary btn-sm" onclick="adminPanel('review',document.querySelector('.admin-nav button:last-child'))">Review</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Driver Detail Review -->
+      <div id="ap-review" class="admin-panel">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="card">
+            <h3 style="margin-bottom:12px;">👤 Driver Information</h3>
+            <div class="driver-card" style="margin-bottom:12px;">
+              <div class="driver-avatar" style="width:64px;height:64px;font-size:28px;">N</div>
+              <div class="driver-info">
+                <h4 style="font-size:18px;">Noam Ben-David</h4>
+                <p>📞 +972 53-456-7890</p>
+                <p>📧 noam.bd@email.co.il</p>
+                <p style="margin-top:4px;"><span class="badge badge-warning">Pending Verification</span></p>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <h4 style="margin-bottom:8px;">🚗 Vehicle</h4>
+            <p>Hyundai Ioniq 6 — 2025 — Silver</p>
+            <p style="font-weight:700;">Plate: 78-901-23</p>
+            <p>♿ Not wheelchair accessible</p>
+          </div>
+
+          <div class="card">
+            <h3 style="margin-bottom:12px;">📑 Documents</h3>
+            <div class="doc-review-item">
+              <div class="doc-icon">📄</div>
+              <div class="doc-info"><h5>Taxi Operating License</h5><p>TL-2025-12345 — Expires: 2027-05-20</p></div>
+              <span class="badge badge-success">Valid</span>
+            </div>
+            <div class="doc-review-item">
+              <div class="doc-icon">🪪</div>
+              <div class="doc-info"><h5>Driver's License</h5><p>Category B — Expires: 2029-08-10</p></div>
+              <span class="badge badge-success">Valid</span>
+            </div>
+            <div class="doc-review-item">
+              <div class="doc-icon">🚗</div>
+              <div class="doc-info"><h5>Taxi Vehicle License</h5><p>VL-2025-67890 — Expires: 2026-12-31</p></div>
+              <span class="badge badge-success">Valid</span>
+            </div>
+            <div class="doc-review-item">
+              <div class="doc-icon">📋</div>
+              <div class="doc-info"><h5>Vehicle Inspection</h5><p>Passed — 2025-11-15</p></div>
+              <span class="badge badge-success">Valid</span>
+            </div>
+            <div class="doc-review-item">
+              <div class="doc-icon">🛡️</div>
+              <div class="doc-info"><h5>Insurance Policy</h5><p>Migdal — Expires: 2026-11-30</p></div>
+              <span class="badge badge-success">Valid</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+          <h3 style="margin-bottom:12px;">Decision</h3>
+          <div class="input-group">
+            <label>Notes (required for rejection)</label>
+            <input type="text" id="admin-notes" placeholder="Optional notes...">
+          </div>
+          <div style="display:flex;gap:12px;">
+            <button class="btn btn-success" style="flex:2;" onclick="adminDecision('approve')">✓ Approve Driver</button>
+            <button class="btn btn-outline" style="flex:1;" onclick="adminDecision('info')">ℹ️ Request Info</button>
+            <button class="btn btn-danger" style="flex:1;" onclick="adminDecision('reject')">✗ Reject</button>
+          </div>
+          <div id="admin-decision-result" style="margin-top:12px;display:none;padding:12px;border-radius:8px;text-align:center;font-weight:600;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ===== VIEW SWITCHING ===== */
+function switchView(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  event.target.classList.add('active');
+}
+
+/* ===== RIDER NAVIGATION ===== */
+// Tracks screen history for the rider flow
+let riderHistory = ['splash'];
+
+function riderGo(screenId) {
+  // Hide all rider screens
+  document.querySelectorAll('[id^="r-"]').forEach(s => s.classList.remove('active'));
+  // Show target
+  const el = document.getElementById('r-' + screenId);
+  if (el) { el.classList.add('active'); riderHistory.push(screenId); }
+
+  // Auto-advance from "finding" to "assigned" after 2.5s
+  if (screenId === 'finding') {
+    setTimeout(() => {
+      if (riderHistory[riderHistory.length - 1] === 'finding') riderGo('assigned');
+    }, 2500);
+  }
+}
+
+/* ===== DRIVER NAVIGATION ===== */
+function driverGo(screenId) {
+  document.querySelectorAll('[id^="d-"]').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('d-' + screenId);
+  if (el) el.classList.add('active');
+
+  // Start timer countdown for request screen
+  if (screenId === 'request') startRequestTimer();
+}
+
+/* ===== DRIVER ONLINE TOGGLE ===== */
+function toggleDriverOnline() {
+  const toggle = document.getElementById('driver-toggle');
+  const label = document.getElementById('driver-status-label');
+  const mapStatus = document.getElementById('driver-map-status');
+  const simBtn = document.getElementById('sim-request-btn');
+  const isOn = toggle.classList.toggle('on');
+
+  if (isOn) {
+    label.textContent = 'ONLINE';
+    label.style.color = 'var(--success)';
+    mapStatus.textContent = '🟢 Online — Waiting for requests';
+    simBtn.style.display = 'block';
+  } else {
+    label.textContent = 'OFFLINE';
+    label.style.color = 'var(--text-secondary)';
+    mapStatus.textContent = 'You are offline';
+    simBtn.style.display = 'none';
+  }
+}
+
+/* ===== REQUEST TIMER ===== */
+let timerInterval;
+function startRequestTimer() {
+  let seconds = 30;
+  const timerEl = document.getElementById('request-timer');
+  timerEl.textContent = seconds;
+  timerEl.classList.remove('urgent');
+
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    seconds--;
+    timerEl.textContent = seconds;
+    if (seconds <= 10) timerEl.classList.add('urgent');
+    if (seconds <= 0) {
+      clearInterval(timerInterval);
+      driverGo('home');
+    }
+  }, 1000);
+}
+
+/* ===== STAR RATING ===== */
+function setStars(containerId, rating) {
+  const stars = document.getElementById(containerId).querySelectorAll('.star');
+  stars.forEach((star, i) => {
+    star.classList.toggle('filled', i < rating);
+  });
+}
+
+/* ===== ADMIN PANEL SWITCHING ===== */
+function adminPanel(panelId, btn) {
+  document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.admin-nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('ap-' + panelId).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+/* ===== ADMIN DECISION ===== */
+function adminDecision(decision) {
+  const result = document.getElementById('admin-decision-result');
+  result.style.display = 'block';
+
+  if (decision === 'approve') {
+    result.style.background = '#E6F4EA';
+    result.style.color = '#137333';
+    result.textContent = '✓ Driver Noam Ben-David APPROVED. Activation notification sent. Audit log entry created.';
+  } else if (decision === 'reject') {
+    const notes = document.getElementById('admin-notes').value || 'No reason provided';
+    result.style.background = '#FCE8E6';
+    result.style.color = '#C5221F';
+    result.textContent = '✗ Driver REJECTED. Reason: ' + notes + '. Notification sent. Audit log entry created.';
+  } else {
+    result.style.background = '#E8F0FE';
+    result.style.color = '#1967D2';
+    result.textContent = 'ℹ️ Additional information requested from driver. Notification sent.';
+  }
+}
+
+/* ===== LANGUAGE TOGGLE (Demo) ===== */
+const translations = {
+  he: {
+    register: 'הרשמה', enter_phone: 'הזינו מספר טלפון כדי להתחיל',
+    phone_label: 'מספר טלפון', name_label: 'שם מלא', lang_label: 'שפה מועדפת',
+    get_otp: 'שליחת קוד אימות', terms_link: 'בהמשך השימוש הנך מסכים לתנאי השימוש ומדיניות הפרטיות',
+    verify: 'אימות טלפון', otp_sent: 'שלחנו קוד בן 6 ספרות אל', verify_btn: 'אימות והמשך',
+    resend: 'שליחה מחדש (27ש)', home: 'RideIL', set_route: 'הגדרת מסלול',
+    pickup: 'איסוף', destination: 'יעד', confirm_ride: 'אישור נסיעה',
+    est_fare: 'מחיר משוער', est_time: 'זמן משוער', distance: 'מרחק',
+    payment: 'אמצעי תשלום', request_taxi: '🚖 הזמנת מונית',
+    finding: 'מחפש נהג', searching: 'מחפש נהגים בסביבה...',
+    matching_info: 'מחברים אותך עם הנהג הזמין הקרוב ביותר', cancel: 'ביטול',
+    driver_assigned: 'נהג שובץ', arriving_in: 'מגיע בעוד',
+    sim_pickup: '▶ סימולציית איסוף', trip_progress: 'נסיעה פעילה',
+    eta: 'זמן הגעה', sim_complete: '▶ סימולציית סיום',
+    trip_complete: 'הנסיעה הסתיימה', thanks: 'תודה על הנסיעה!',
+    base_fare: 'תעריף בסיסי', distance_charge: 'מרחק (18.5 ק"מ)',
+    time_charge: 'זמן (24 דקות)', subtotal: 'סכום ביניים',
+    vat: 'מע"מ (17%)', total: 'סה"כ',
+    rate_driver: 'דרגו את הנהג', download_receipt: '📄 הורדת קבלה',
+    done: 'סיום', profile: 'פרופיל', trip_history: 'היסטוריית נסיעות',
+    logout: 'יציאה'
+  }
+};
+
+function setLang(lang) {
+  document.querySelectorAll('.lang-toggle button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+
+  const dir = (lang === 'he' || lang === 'ar') ? 'rtl' : 'ltr';
+  document.documentElement.dir = dir;
+  document.documentElement.lang = lang;
+
+  if (lang !== 'en' && translations[lang]) {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      if (translations[lang][key]) el.textContent = translations[lang][key];
+    });
+  } else {
+    // Reset to English — reload is simplest for this demo
+    location.reload();
+  }
+}
+</script>
+
+</body>
+</html>
