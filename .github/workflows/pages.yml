@@ -27,17 +27,13 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
-
-      - name: Copy site to deploy directory
-        run: |
-          mkdir -p _site
-          cp -r index.html wireframes _site/ 2>/dev/null || true
-          cp .nojekyll _site/ 2>/dev/null || true
+        with:
+          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '_site'
+          path: '.'
 
       - name: Deploy to GitHub Pages
         id: deployment
