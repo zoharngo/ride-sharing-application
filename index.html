@@ -140,15 +140,64 @@
             border: none;
             cursor: pointer;
             padding: 0.5rem;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .nav-mobile-toggle svg {
-            width: 24px;
-            height: 24px;
+            width: 28px;
+            height: 28px;
             fill: none;
             stroke: var(--color-white);
             stroke-width: 2;
             stroke-linecap: round;
+        }
+
+        /* Mobile Navigation Menu */
+        .nav-mobile-menu {
+            display: none;
+            position: fixed;
+            top: 72px;
+            left: 0;
+            right: 0;
+            background: rgba(10, 22, 40, 0.98);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 1rem 1.5rem 1.5rem;
+            z-index: 999;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            list-style: none;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .nav-mobile-menu.open {
+            display: flex;
+        }
+
+        .nav-mobile-menu a {
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            font-size: 1.05rem;
+            font-weight: 500;
+            padding: 0.85rem 1rem;
+            border-radius: var(--radius-sm);
+            display: block;
+            transition: background 0.2s, color 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .nav-mobile-menu a:hover,
+        .nav-mobile-menu a:active {
+            background: rgba(255,255,255,0.08);
+            color: var(--color-white);
+        }
+
+        .nav-mobile-menu .nav-cta {
+            background: var(--color-accent);
+            color: var(--color-white) !important;
+            text-align: center;
+            margin-top: 0.5rem;
+            font-weight: 600;
         }
 
         /* ===================== HERO ===================== */
@@ -1326,6 +1375,22 @@
                 gap: 3rem;
             }
 
+            .drivers-text .section-title,
+            .drivers-text .section-subtitle {
+                text-align: center !important;
+            }
+
+            .driver-benefits {
+                align-items: center;
+            }
+
+            .drivers-text .btn {
+                display: block;
+                text-align: center;
+                max-width: 300px;
+                margin: 0 auto;
+            }
+
             .compliance-grid {
                 grid-template-columns: 1fr;
             }
@@ -1340,18 +1405,33 @@
             }
         }
 
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .nav-mobile-toggle {
+                display: block;
+            }
+        }
+
         @media (max-width: 640px) {
             .hero {
-                padding: 8rem 1.25rem 4rem;
+                padding: 7rem 1rem 3.5rem;
                 min-height: auto;
             }
 
             .hero h1 {
-                font-size: 2.4rem;
+                font-size: 2.2rem;
             }
 
             .hero-description {
                 font-size: 1rem;
+            }
+
+            .hero-badge {
+                font-size: 0.72rem;
+                padding: 0.4rem 0.85rem;
             }
 
             .hero-ctas {
@@ -1362,26 +1442,37 @@
             .btn {
                 width: 100%;
                 max-width: 300px;
+                padding: 0.9rem 1.6rem;
+                min-height: 48px;
             }
 
             .section-title {
                 font-size: 1.7rem;
             }
 
+            .section-subtitle {
+                font-size: 0.95rem;
+            }
+
             .features-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .feature-card {
+                padding: 1.5rem 1.25rem;
             }
 
             .email-form {
                 flex-direction: column;
             }
 
-            .nav-links {
-                display: none;
+            .email-form input {
+                min-height: 48px;
+                font-size: 1rem;
             }
 
-            .nav-mobile-toggle {
-                display: block;
+            .email-form button {
+                min-height: 48px;
             }
 
             .footer-inner {
@@ -1389,9 +1480,24 @@
                 gap: 1.5rem;
             }
 
+            .footer-bottom {
+                flex-direction: column;
+                gap: 0.75rem;
+                text-align: center;
+            }
+
             .stats-inner {
                 grid-template-columns: repeat(2, 1fr);
-                gap: 1.5rem;
+                gap: 1.25rem;
+                padding: 1.75rem 1rem;
+            }
+
+            .stat-number {
+                font-size: 1.5rem;
+            }
+
+            .cta-section {
+                padding: 4rem 1rem;
             }
 
             .cta-section h2 {
@@ -1406,6 +1512,88 @@
             .lang-card {
                 width: 100%;
                 max-width: 300px;
+            }
+
+            .driver-stat-card {
+                padding: 1.25rem 1rem;
+            }
+
+            .how-it-works,
+            .features,
+            .drivers,
+            .compliance {
+                padding: 4rem 1rem;
+            }
+
+            .languages {
+                padding: 3.5rem 1rem;
+            }
+
+            .phone-mockup {
+                width: 220px;
+                height: 440px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero {
+                padding: 6.5rem 0.75rem 3rem;
+            }
+
+            .hero h1 {
+                font-size: 1.85rem;
+            }
+
+            .hero-description {
+                font-size: 0.92rem;
+            }
+
+            .section-title {
+                font-size: 1.45rem;
+            }
+
+            .stats-inner {
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+                padding: 1.5rem 0.75rem;
+            }
+
+            .stat-number {
+                font-size: 1.3rem;
+            }
+
+            .stat-label {
+                font-size: 0.78rem;
+            }
+
+            .driver-stats {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .phone-mockup {
+                width: 200px;
+                height: 400px;
+            }
+
+            .nav-inner {
+                height: 60px;
+            }
+
+            .nav-mobile-menu {
+                top: 60px;
+            }
+
+            .lang-card {
+                padding: 1.5rem 2rem;
+            }
+
+            .cta-section h2 {
+                font-size: 1.55rem;
+            }
+
+            .compliance-card {
+                padding: 1.5rem 1.25rem;
             }
         }
     </style>
@@ -1426,6 +1614,12 @@
                 <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
         </div>
+        <ul class="nav-mobile-menu" id="mobile-menu">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#how-it-works">How It Works</a></li>
+            <li><a href="#drivers">Drivers</a></li>
+            <li><a href="#early-access" class="nav-cta">Get Early Access</a></li>
+        </ul>
     </nav>
 
     <!-- Hero Section -->
@@ -1803,7 +1997,6 @@
         </div>
         <div class="footer-bottom">
             <span>&copy; 2026 RideIL. All rights reserved.</span>
-            <a href="https://github.com/zoharngo/ride-sharing-application" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
         </div>
     </footer>
 
@@ -1842,6 +2035,25 @@
                 btn.style.background = '';
             }, 2500);
         }
+
+        // Mobile menu toggle
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const mobileMenu = document.getElementById('mobile-menu');
+        mobileToggle.addEventListener('click', () => {
+            mobileMenu.classList.toggle('open');
+            const isOpen = mobileMenu.classList.contains('open');
+            mobileToggle.setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
+            mobileToggle.setAttribute('aria-expanded', isOpen);
+        });
+
+        // Close mobile menu when a link is tapped
+        mobileMenu.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                mobileMenu.classList.remove('open');
+                mobileToggle.setAttribute('aria-label', 'Open menu');
+                mobileToggle.setAttribute('aria-expanded', 'false');
+            });
+        });
 
         // Smooth scroll for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
